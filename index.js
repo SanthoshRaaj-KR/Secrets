@@ -5,6 +5,10 @@ import bcrypt from "bcrypt";
 import passport from "passport";
 import session from "express-session";
 import { Strategy } from "passport-local";
+import env from "dotenv";
+
+
+env.config();
 const app = express();
 const port = 3000;
 const saltRounds = 10;
@@ -13,7 +17,7 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static("public"));
 
 app.use(session({
-  secret:"TOPSECRETWORD",
+  secret:process.env.SESSION_SECRET,
   resave:false,
   saveUninitialized:true,
   cookie:{
@@ -25,11 +29,11 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 const db = new pg.Client({
-  user: "postgres",
-  host: "localhost",
-  database: "Authentication",
-  password: "sql123",
-  port: 5432,
+  user: process.env.USER,
+  host:process.env.HOST,
+  database: process.env.DATABASE,
+  password: process.env.PASSWORD,
+  port: process.env.PORT,
 });
 db.connect();
 
