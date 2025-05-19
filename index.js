@@ -6,7 +6,7 @@ import passport from "passport";
 import session from "express-session";
 import { Strategy } from "passport-local";
 import env from "dotenv";
-
+import GoogleStrategy from "passport-google-oauth2";
 
 env.config();
 const app = express();
@@ -49,6 +49,16 @@ app.get("/register", (req, res) => {
   res.render("register.ejs");
 });
 
+app.get("/logout",(req,res)=>{
+  const result=req.logout;
+  if(result){
+    res.redirect("/");
+  }
+  else{
+    console.log("Not Possible");
+  }
+})
+
 app.get("/secrets", (req, res) => {
   // console.log(req.user);
   if (req.isAuthenticated()) {
@@ -57,6 +67,18 @@ app.get("/secrets", (req, res) => {
     res.redirect("/login");
   }
 });
+
+app.get("/auth/google",passport.authenticate("google",{
+  scope:["email","profile"]
+}))
+
+app.get(
+  "/auth/google/secrets",
+  passport.authenticate("google", {
+    successRedirect: "/secrets",
+    failureRedirect: "/login",
+  })
+);
 
 
 app.post("/register", async (req, res) => {
@@ -110,6 +132,7 @@ passport.use(new Strategy(async function verify(username,password,cb){
           return cb(err);
         } else {
           if (result) {
+            res.redirect("/secrets")
             return cb(null,user);
           } else {
             return cb(null,false);
@@ -125,6 +148,36 @@ passport.use(new Strategy(async function verify(username,password,cb){
   }
 }))
 
+passport.use(
+  "google",
+  new GoogleStrategy(
+    {
+      clientID: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      callbackURL: "http://localhost:3000/auth/google/secrets",
+      userProfileURL: "https://www.googleapis.com/oauth2/v3/userinfo",
+    },
+    async (accessToken, refreshToken, profile, cb) => {
+      try {
+        console.log(profile);
+        const result = await db.query("SELECT * FROM users WHERE email = $1", [
+          profile.email,
+        ]);
+        if (result.rows.length === 0) {
+          const newUser = await db.query(
+            "INSERT INTO users (email, password) VALUES ($1, $2)",
+            [profile.email, "google"]
+          );
+          return cb(null, newUser.rows[0]);
+        } else {
+          return cb(null, result.rows[0]);
+        }
+      } catch (err) {
+        return cb(err);
+      }
+    }
+  )
+);
 
 passport.serializeUser((user, cb) => {
   cb(null, user);
